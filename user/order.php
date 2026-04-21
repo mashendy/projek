@@ -27,8 +27,9 @@ if(mysqli_num_rows($eventQuery) == 0){
 }
 $event = mysqli_fetch_assoc($eventQuery);
 
+// Inisialisasi variabel agar tidak tertukar
 $message = '';
-$messageType = 'success';
+$messageType = '';
 $orderSummary = false;
 
 // Proses Beli
@@ -37,8 +38,12 @@ if(isset($_POST['beli'])){
     $qty = isset($_POST['qty']) ? intval($_POST['qty']) : 0;
     $voucherCode = isset($_POST['voucher']) ? trim($_POST['voucher']) : '';
 
-    if($id_tiket <= 0 || $qty <= 0){
-        $message = 'Pilih tiket dan jumlah yang benar.';
+    // Validasi PHP (Backup jika JS dimatikan)
+    if($id_tiket <= 0){
+        $message = 'Gagal! Silakan pilih jenis tiket terlebih dahulu.';
+        $messageType = 'danger';
+    } elseif($qty < 1){
+        $message = 'Gagal! Jumlah pesanan minimal adalah 1 tiket.';
         $messageType = 'danger';
     } else {
         $ticketQuery = mysqli_query($conn, "SELECT * FROM tiket WHERE id_tiket = '$id_tiket' AND id_event = '$id_event'");
@@ -58,31 +63,40 @@ if(isset($_POST['beli'])){
                 $voucherMessage = '';
                 $voucherId = 'NULL';
 
+                // Proses Voucher
                 if($voucherCode !== ''){
-                    $voucherQuery = mysqli_query($conn, "SELECT * FROM voucher WHERE kode_voucher = '" . mysqli_real_escape_string($conn, $voucherCode) . "' AND status = 'aktif' AND kuota > 0");
-                    if(mysqli_num_rows($voucherQuery) == 0){
+                    $vStr = mysqli_real_escape_string($conn, $voucherCode);
+                    $vQ = mysqli_query($conn, "SELECT * FROM voucher WHERE kode_voucher = '$vStr' AND status = 'aktif' AND kuota > 0");
+                    if(mysqli_num_rows($vQ) == 0){
                         $message = 'Voucher tidak valid.';
                         $messageType = 'danger';
                     } else {
-                        $voucher = mysqli_fetch_assoc($voucherQuery);
-                        $discount = floor($subtotal * $voucher['potongan'] / 100);
+                        $vData = mysqli_fetch_assoc($vQ);
+                        $discount = floor($subtotal * $vData['potongan'] / 100);
                         $subtotal = max(0, $subtotal - $discount);
-                        $voucherId = intval($voucher['id_voucher']);
-                        mysqli_query($conn, "UPDATE voucher SET kuota = kuota - 1 WHERE id_voucher = '" . $voucherId . "'");
+                        $voucherId = intval($vData['id_voucher']);
+                        mysqli_query($conn, "UPDATE voucher SET kuota = kuota - 1 WHERE id_voucher = '$voucherId'");
                         $voucherMessage = 'Diskon Rp ' . number_format($discount) . ' diterapkan. ';
                     }
                 }
 
                 if($messageType !== 'danger'){
                     $id_user = intval($_SESSION['id_user']);
-                    mysqli_query($conn, "INSERT INTO orders (id_user, tanggal_order, total, status, id_voucher) VALUES ('$id_user', NOW(), '$subtotal', 'pending', " . ($voucherId !== 'NULL' ? "'$voucherId'" : 'NULL') . ")");
-                    $id_order = mysqli_insert_id($conn);
-                    mysqli_query($conn, "INSERT INTO order_detail (id_order, id_tiket, qty, subtotal) VALUES ('$id_order', '$id_tiket', '$qty', '$subtotal')");
-                    mysqli_query($conn, "UPDATE tiket SET kuota = kuota - $qty WHERE id_tiket = '$id_tiket'");
+                    $qOrder = "INSERT INTO orders (id_user, tanggal_order, total, status, id_voucher) 
+                               VALUES ('$id_user', NOW(), '$subtotal', 'pending', " . ($voucherId !== 'NULL' ? "'$voucherId'" : 'NULL') . ")";
+                    
+                    if(mysqli_query($conn, $qOrder)){
+                        $id_order = mysqli_insert_id($conn);
+                        mysqli_query($conn, "INSERT INTO order_detail (id_order, id_tiket, qty, subtotal) VALUES ('$id_order', '$id_tiket', '$qty', '$subtotal')");
+                        mysqli_query($conn, "UPDATE tiket SET kuota = kuota - $qty WHERE id_tiket = '$id_tiket'");
 
-                    $message = 'Berhasil! ' . $voucherMessage;
-                    $messageType = 'success';
-                    $orderSummary = true;
+                        $message = 'Berhasil memesan tiket! ' . $voucherMessage;
+                        $messageType = 'success';
+                        $orderSummary = true;
+                    } else {
+                        $message = 'Terjadi kesalahan sistem.';
+                        $messageType = 'danger';
+                    }
                 }
             }
         }
@@ -101,39 +115,17 @@ while ($row = mysqli_fetch_assoc($tickets)) {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Pesan Tiket</title>
+    <title>Pesan Tiket - HenTix</title>
+    <link rel="icon" type="image/x-icon" href="../bootstrap/image/image.png">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" rel="stylesheet">
     <style>
         body { background: #f4f7f6; font-family: 'Inter', sans-serif; font-size: 0.9rem; }
-        
-        /* Mengecilkan lebar maksimal di laptop agar lebih compact */
-        @media (min-width: 992px) {
-            .container-custom { max-width: 900px; margin: auto; }
-        }
-
+        @media (min-width: 992px) { .container-custom { max-width: 900px; margin: auto; } }
         .card { border: none; border-radius: 10px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
         .form-label { font-weight: 600; font-size: 0.85rem; color: #555; }
-        .form-control, .form-select { font-size: 0.85rem; padding: 0.5rem 0.75rem; }
-        
-        .ticket-item {
-            padding: 10px 15px;
-            background: #fff;
-            border: 1px solid #eee;
-            border-radius: 8px;
-            margin-bottom: 10px;
-        }
-
-        .total-box {
-            background: #f0f7ff;
-            border: 1px dashed #0d6efd;
-            border-radius: 8px;
-            padding: 12px;
-        }
-
-        @media (max-width: 768px) {
-            .page-title { font-size: 1.2rem; }
-        }
+        .ticket-item { padding: 10px 15px; background: #fff; border: 1px solid #eee; border-radius: 8px; margin-bottom: 10px; }
+        .total-box { background: #f0f7ff; border: 1px dashed #0d6efd; border-radius: 8px; padding: 12px; }
     </style>
 </head>
 <body>
@@ -143,11 +135,13 @@ while ($row = mysqli_fetch_assoc($tickets)) {
 <div class="container container-custom py-4">
     <div class="mb-4 d-flex justify-content-between align-items-center">
         <div>
-            <h4 class="fw-bold mb-1 page-title"><?= htmlspecialchars($event['nama_event']); ?></h4>
+            <h4 class="fw-bold mb-1"><?= htmlspecialchars($event['nama_event']); ?></h4>
             <p class="text-muted mb-0 small"><i class="fas fa-map-marker-alt me-1"></i> <?= htmlspecialchars($event['nama_venue']); ?></p>
         </div>
         <a href="dashboard.php" class="btn btn-sm btn-outline-secondary">Kembali</a>
     </div>
+
+    <div id="jsAlert"></div>
 
     <?php if($message): ?>
         <div class="alert alert-<?= $messageType; ?> py-2 small d-flex justify-content-between align-items-center">
@@ -179,7 +173,7 @@ while ($row = mysqli_fetch_assoc($tickets)) {
         <div class="col-lg-7">
             <div class="card h-100">
                 <div class="card-body">
-                    <form method="POST">
+                    <form id="orderForm" method="POST">
                         <div class="mb-3">
                             <label class="form-label">Jenis Tiket</label>
                             <select id="ticketSelector" name="id_tiket" class="form-select" required>
@@ -195,7 +189,7 @@ while ($row = mysqli_fetch_assoc($tickets)) {
                         <div class="row g-2">
                             <div class="col-4">
                                 <label class="form-label">Jumlah</label>
-                                <input id="ticketQty" type="number" name="qty" class="form-control text-center" value="1" min="1">
+                                <input id="ticketQty" type="number" name="qty" class="form-control text-center" value="1" min="0">
                             </div>
                             <div class="col-8">
                                 <label class="form-label">Voucher</label>
@@ -220,17 +214,23 @@ while ($row = mysqli_fetch_assoc($tickets)) {
 
 <script>
     document.addEventListener('DOMContentLoaded', function() {
+        const orderForm = document.getElementById('orderForm');
         const selector = document.getElementById('ticketSelector');
         const qtyInput = document.getElementById('ticketQty');
         const totalDisplay = document.getElementById('totalPrice');
+        const alertBox = document.getElementById('jsAlert');
 
         function calculate() {
             const opt = selector.selectedOptions[0];
-            const price = opt ? parseInt(opt.dataset.price || 0) : 0;
-            const max = opt ? parseInt(opt.dataset.kuota || 1) : 1;
+            const price = opt && opt.value !== "" ? parseInt(opt.dataset.price) : 0;
+            const max = opt && opt.value !== "" ? parseInt(opt.dataset.kuota) : 1;
             let val = parseInt(qtyInput.value);
 
-            if (val > max) { val = max; qtyInput.value = max; }
+            if (val > max) { 
+                val = max; 
+                qtyInput.value = max; 
+            }
+            
             if (isNaN(val) || val < 1) {
                 totalDisplay.innerText = 'Rp 0';
                 return;
@@ -239,13 +239,36 @@ while ($row = mysqli_fetch_assoc($tickets)) {
             totalDisplay.innerText = 'Rp ' + new Intl.NumberFormat('id-ID').format(price * val);
         }
 
-        // Trik Auto-Select angka 1 agar mudah diganti
-        qtyInput.addEventListener('focus', function() { this.select(); });
-        
-        qtyInput.addEventListener('blur', function() {
-            if (this.value === '' || this.value < 1) { this.value = 1; calculate(); }
+        orderForm.addEventListener('submit', function(e) {
+            const qty = parseInt(qtyInput.value);
+            
+            // Hapus alert lama jika ada
+            alertBox.innerHTML = '';
+
+            // Validasi: Tiket harus dipilih
+            if (selector.value === "" || selector.value === null) {
+                e.preventDefault();
+                alert('Silakan pilih jenis tiket terlebih dahulu!');
+                alertBox.innerHTML = '<div class="alert alert-danger py-2 small">Gagal! Silakan pilih jenis tiket terlebih dahulu.</div>';
+                return false;
+            }
+
+            // Validasi: Qty minimal 1
+            if (isNaN(qty) || qty < 1) {
+                e.preventDefault(); // Gagalkan submit
+                alert('Jumlah pesanan minimal adalah 1 tiket!');
+                
+                // Munculkan notif merah di halaman
+                alertBox.innerHTML = '<div class="alert alert-danger py-2 small">Gagal! Jumlah pesanan minimal adalah 1 tiket.</div>';
+                
+                qtyInput.value = 1;
+                qtyInput.focus();
+                calculate();
+                return false;
+            }
         });
 
+        qtyInput.addEventListener('focus', function() { this.select(); });
         selector.addEventListener('change', calculate);
         qtyInput.addEventListener('input', calculate);
     });
