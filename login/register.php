@@ -48,116 +48,184 @@ if (isset($_POST['register'])) {
     <title>Daftar | HenTix</title>
     <link rel="icon" type="image/x-icon" href="../bootstrap/image/image.png">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
         body {
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             min-height: 100vh;
             display: flex;
             align-items: center;
-            font-family: 'Segoe UI', sans-serif;
+            font-family: 'Inter', sans-serif;
+            color: #2d3436;
+            margin: 0;
         }
-        .card-register {
+        .register-card {
             border: none;
-            border-radius: 12px;
-            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+            border-radius: 20px;
+            box-shadow: 0 15px 35px rgba(0, 0, 0, 0.2);
+            background: rgba(255, 255, 255, 0.98);
+            backdrop-filter: blur(10px);
         }
-        /* Header Ramping */
-        .card-body { padding: 1.5rem !important; }
-        h4 { font-size: 1.2rem; font-weight: 700; }
-        
-        /* Input Ringkas */
-        .form-label { font-size: 0.8rem; margin-bottom: 3px; color: #555; }
+        .card-header {
+            background: transparent;
+            border: none;
+            padding: 35px 30px 10px;
+        }
+        .brand-logo {
+            width: 70px;
+            height: auto;
+            margin-bottom: 15px;
+            object-fit: contain;
+        }
+        .card-header h4 { 
+            font-weight: 700; 
+            letter-spacing: -0.5px;
+            color: #1a1a1a;
+        }
+        .form-label { 
+            font-size: 0.75rem; 
+            text-transform: uppercase; 
+            letter-spacing: 1px;
+            font-weight: 700;
+            color: #636e72;
+            margin-bottom: 6px;
+        }
+        .input-group {
+            background-color: #f1f3f5;
+            border-radius: 12px;
+            transition: all 0.3s ease;
+            border: 2px solid transparent;
+            overflow: hidden;
+        }
+        .input-group:focus-within {
+            border-color: #667eea;
+            background-color: #fff;
+            box-shadow: 0 0 0 4px rgba(102, 126, 234, 0.1);
+        }
+        .input-group-text {
+            background: transparent;
+            border: none;
+            padding-left: 15px;
+            color: #a0a0a0;
+        }
         .form-control {
-            padding: 7px 12px;
-            font-size: 0.85rem;
-            border-radius: 8px;
-            border: 1px solid #ddd;
+            background: transparent;
+            border: none;
+            padding: 12px 15px 12px 5px;
+            font-size: 0.9rem;
+            font-weight: 500;
         }
         .form-control:focus {
-            border-color: #667eea;
+            background: transparent;
             box-shadow: none;
         }
-
-        /* Alert Kecil */
-        .alert { 
-            padding: 8px 12px; 
-            font-size: 0.8rem; 
-            border-radius: 8px; 
-        }
-
-        /* Tombol */
         .btn-register {
-            padding: 10px;
-            font-size: 0.9rem;
-            font-weight: 600;
-            border-radius: 8px;
+            padding: 12px;
+            border-radius: 12px;
+            font-weight: 700;
+            font-size: 1rem;
             background: linear-gradient(135deg, #667eea, #764ba2);
             border: none;
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
         }
+        .btn-register:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(118, 75, 162, 0.4);
+            filter: brightness(1.1);
+        }
+        .alert {
+            font-size: 0.85rem;
+            border-radius: 12px;
+            border: none;
+            font-weight: 500;
+        }
+        .small-text { font-size: 0.85rem; font-weight: 500; }
+        .text-purple { color: #764ba2; }
 
         @media (max-width: 576px) {
             .container { padding: 0 20px; }
-            .card-body { padding: 1.25rem !important; }
         }
     </style>
 </head>
 <body>
 
-<div class="container py-3">
+<div class="container py-5">
     <div class="row justify-content-center">
-        <div class="col-11 col-sm-9 col-md-6 col-lg-4">
-            <div class="card card-register">
-                <div class="card-body">
-                    <div class="text-center mb-3">
-                        <h4 class="mb-1 text-dark">Daftar Akun</h4>
-                        <p class="text-muted small mb-0">Lengkapi data di bawah ini</p>
-                    </div>
+        <div class="col-12 col-sm-10 col-md-8 col-lg-5 col-xl-4">
+            
+            <div class="card register-card px-2">
+                <div class="card-header text-center">
+                    <img src="../bootstrap/image/image.png" alt="Logo HenTix" class="brand-logo">
+                    <h4 class="mb-1">Daftar Akun</h4>
+                    <p class="text-muted small-text">Bergabunglah dengan HenTix sekarang</p>
+                </div>
 
+                <div class="card-body p-4 pt-2">
                     <?php if ($error): ?>
-                        <div class="alert alert-danger mb-3"><?= $error ?></div>
+                        <div class="alert alert-danger mb-3"><i class="fas fa-exclamation-circle me-2"></i><?= $error ?></div>
                     <?php elseif ($success): ?>
-                        <div class="alert alert-success mb-3"><?= $success ?></div>
+                        <div class="alert alert-success mb-3"><i class="fas fa-check-circle me-2"></i><?= $success ?></div>
                     <?php endif; ?>
 
                     <form method="POST">
-                        <div class="mb-2">
+                        <div class="mb-3">
                             <label class="form-label">Nama Lengkap</label>
-                            <input type="text" name="nama" class="form-control" value="<?= htmlspecialchars($nama) ?>" placeholder="Nama anda" required>
+                            <div class="input-group">
+                                <span class="input-group-text"><i class="fas fa-user"></i></span>
+                                <input type="text" name="nama" class="form-control" value="<?= htmlspecialchars($nama) ?>" placeholder="Nama Lengkap" required>
+                            </div>
                         </div>
 
-                        <div class="mb-2">
+                        <div class="mb-3">
                             <label class="form-label">Email</label>
-                            <input type="email" name="email" class="form-control" value="<?= htmlspecialchars($email) ?>" placeholder="email@gmail.com" required>
+                            <div class="input-group">
+                                <span class="input-group-text"><i class="fas fa-envelope"></i></span>
+                                <input type="email" name="email" class="form-control" value="<?= htmlspecialchars($email) ?>" placeholder="nama@email.com" required>
+                            </div>
                         </div>
 
-                        <div class="row g-2 mb-3">
+                        <div class="row g-2 mb-4">
                             <div class="col-6">
                                 <label class="form-label">Password</label>
-                                <input type="password" name="password" class="form-control" placeholder="••••" required>
+                                <div class="input-group">
+                                    <span class="input-group-text"><i class="fas fa-lock"></i></span>
+                                    <input type="password" name="password" class="form-control" placeholder="••••" required>
+                                </div>
                             </div>
                             <div class="col-6">
                                 <label class="form-label">Konfirmasi</label>
-                                <input type="password" name="password_confirm" class="form-control" placeholder="••••" required>
+                                <div class="input-group">
+                                    <span class="input-group-text"><i class="fas fa-shield-alt"></i></span>
+                                    <input type="password" name="password_confirm" class="form-control" placeholder="••••" required>
+                                </div>
                             </div>
                         </div>
 
-                        <button type="submit" name="register" class="btn btn-primary btn-register w-100 text-white shadow-sm mt-1">
+                        <button type="submit" name="register" class="btn btn-primary btn-register w-100 text-white mb-3">
                             Daftar Sekarang
                         </button>
                     </form>
 
-                    <div class="text-center mt-3">
-                        <p class="mb-0 text-muted" style="font-size: 0.8rem;">
+                    <div class="text-center">
+                        <p class="mb-0 small-text text-muted">
                             Sudah punya akun? 
-                            <a href="login.php" class="text-primary fw-bold text-decoration-none">Login</a>
+                            <a href="login.php" class="fw-bold text-decoration-none text-purple">Masuk di sini</a>
                         </p>
                     </div>
                 </div>
             </div>
+
+            <div class="text-center mt-4">
+                <small style="font-size: 0.75rem; color: rgba(255,255,255,0.7); font-weight: 500; letter-spacing: 0.5px;">
+                    &copy; 2026 HENTIX &bull; ALL RIGHTS RESERVED
+                </small>
+            </div>
+
         </div>
     </div>
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 </body>
-</html>
+</html> 

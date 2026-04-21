@@ -15,64 +15,99 @@ if (isset($_SESSION['login'])) {
     <link rel="icon" type="image/x-icon" href="../bootstrap/image/image.png">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
         body {
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             min-height: 100vh;
             display: flex;
             align-items: center;
-            font-family: 'Segoe UI', sans-serif;
+            font-family: 'Inter', sans-serif;
+            color: #2d3436;
         }
         .login-card {
             border: none;
-            border-radius: 12px;
-            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
-            overflow: hidden;
-            background: white;
+            border-radius: 20px;
+            box-shadow: 0 15px 35px rgba(0, 0, 0, 0.2);
+            background: rgba(255, 255, 255, 0.98);
+            backdrop-filter: blur(10px);
         }
-        /* Header lebih ramping */
         .card-header {
             background: transparent;
-            border-bottom: none;
-            padding: 20px 20px 5px;
+            border: none;
+            padding: 30px 30px 10px; /* Padding disesuaikan untuk logo */
         }
-        .card-header h4 { font-size: 1.25rem; }
-        .card-header p { font-size: 0.85rem; }
-
-        /* Input lebih ringkas */
-        .form-label { font-size: 0.85rem; margin-bottom: 4px; }
-        .form-control {
-            border-radius: 8px;
-            padding: 8px 12px;
-            font-size: 0.9rem;
-            border: 1px solid #dee2e6;
+        /* Style untuk Logo */
+        .brand-logo {
+            width: 70px; /* Atur ukuran lebar logo */
+            height: auto;
+            margin-bottom: 15px;
+            object-fit: contain;
+        }
+        .card-header h4 { 
+            font-weight: 700; 
+            letter-spacing: -0.5px;
+            color: #1a1a1a;
+        }
+        .form-label { 
+            font-size: 0.8rem; 
+            text-transform: uppercase; 
+            letter-spacing: 1px;
+            font-weight: 700;
+            color: #636e72;
+        }
+        .input-group {
+            background-color: #f1f3f5;
+            border-radius: 12px;
+            transition: all 0.3s ease;
+            border: 2px solid transparent;
+        }
+        .input-group:focus-within {
+            border-color: #667eea;
+            background-color: #fff;
+            box-shadow: 0 0 0 4px rgba(102, 126, 234, 0.1);
         }
         .input-group-text {
-            border-radius: 8px 0 0 8px;
-            background-color: #f8f9fa;
-            font-size: 0.9rem;
+            background: transparent;
+            border: none;
+            padding-left: 15px;
+            color: #a0a0a0;
+        }
+        .form-control {
+            background: transparent;
+            border: none;
+            padding: 12px 15px 12px 5px;
+            font-size: 0.95rem;
+            font-weight: 500;
         }
         .form-control:focus {
-            border-color: #667eea;
+            background: transparent;
             box-shadow: none;
         }
-        
-        /* Tombol lebih kecil */
         .btn-login {
-            padding: 10px;
-            border-radius: 8px;
-            font-weight: 600;
-            font-size: 0.95rem;
+            padding: 12px;
+            border-radius: 12px;
+            font-weight: 700;
+            font-size: 1rem;
             background: linear-gradient(135deg, #667eea, #764ba2);
             border: none;
-            margin-top: 10px;
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
         }
-        
-        .small-text { font-size: 0.8rem; }
-
+        .btn-login:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(118, 75, 162, 0.4);
+            filter: brightness(1.1);
+        }
+        .btn-login:active {
+            transform: translateY(0);
+        }
+        .small-text { font-size: 0.85rem; font-weight: 500; }
+        .form-check-input:checked {
+            background-color: #764ba2;
+            border-color: #764ba2;
+        }
         @media (max-width: 576px) {
-            .container { padding: 0 25px; }
-            .card-body { padding: 1.5rem !important; }
+            .container { padding: 0 20px; }
         }
     </style>
 </head>
@@ -80,61 +115,65 @@ if (isset($_SESSION['login'])) {
 
 <div class="container">
     <div class="row justify-content-center">
-        <div class="col-11 col-sm-8 col-md-5 col-lg-4">
+        <div class="col-12 col-sm-10 col-md-7 col-lg-5 col-xl-4">
             
-            <div class="card login-card">
+            <div class="card login-card px-2">
                 <div class="card-header text-center">
-                    <h4 class="mb-0 fw-bold text-dark">Selamat Datang</h4>
-                    <p class="text-muted mb-0">Masuk untuk lanjut</p>
+                    <img src="../bootstrap/image/image.png" alt="Logo HenTix" class="brand-logo">
+                    
+                    <h4 class="mb-1">Selamat Datang</h4>
+                    <p class="text-muted small-text">Silakan masukkan akun HenTix Anda</p>
                 </div>
 
-                <div class="card-body p-4">
+                <div class="card-body p-4 pt-2">
                     <form action="login_proses.php" method="POST">
                         
                         <div class="mb-3">
-                            <label class="form-label fw-medium text-secondary">Email</label>
+                            <label class="form-label">Email</label>
                             <div class="input-group">
-                                <span class="input-group-text border-end-0">
-                                    <i class="fas fa-envelope text-muted"></i>
+                                <span class="input-group-text">
+                                    <i class="fas fa-envelope"></i>
                                 </span>
-                                <input type="email" name="email" class="form-control border-start-0" placeholder="email@anda.com" required>
+                                <input type="email" name="email" class="form-control" placeholder="nama@email.com" required>
                             </div>
                         </div>
 
-                        <div class="mb-3">
-                            <label class="form-label fw-medium text-secondary">Password</label>
+                        <div class="mb-4">
+                            <label class="form-label">Password</label>
                             <div class="input-group">
-                                <span class="input-group-text border-end-0">
-                                    <i class="fas fa-lock text-muted"></i>
+                                <span class="input-group-text">
+                                    <i class="fas fa-lock"></i>
                                 </span>
-                                <input type="password" name="password" class="form-control border-start-0" placeholder="••••••••" required>
+                                <input type="password" name="password" class="form-control" placeholder="••••••••" required>
                             </div>
                         </div>
 
-                        <div class="d-flex justify-content-between align-items-center mb-3">
+                        <div class="d-flex justify-content-between align-items-center mb-4">
                             <div class="form-check mb-0">
-                                <input type="checkbox" class="form-check-input" id="remember" style="width: 14px; height: 14px;">
-                                <label class="form-check-label small-text" for="remember">Ingat saya</label>
+                                <input type="checkbox" class="form-check-input" id="remember">
+                                <label class="form-check-label small-text text-secondary" for="remember">Ingat saya</label>
                             </div>
-                            <a href="#" class="small-text text-decoration-none">Lupa sandi?</a>
+                            <a href="#" class="small-text text-decoration-none fw-bold" style="color: #764ba2;">Lupa sandi?</a>
                         </div>
 
-                        <button type="submit" class="btn btn-primary btn-login w-100 text-white shadow-sm">
+                        <button type="submit" class="btn btn-primary btn-login w-100 text-white mb-3">
                             Login Sekarang
                         </button>
                     </form>
 
-                    <div class="text-center mt-3">
+                    <div class="text-center">
                         <p class="mb-0 small-text text-muted">
                             Belum punya akun? 
-                            <a href="register.php" class="text-primary fw-bold text-decoration-none">Daftar</a>
+                            <a href="register.php" class="fw-bold text-decoration-none" style="color: #667eea;">Daftar Gratis</a>
                         </p>
                     </div>
                 </div>
             </div>
 
-            <div class="text-center mt-3">
-                <small style="font-size: 0.7rem; color: rgba(255,255,255,0.6);">© 2026 HenTix Team</small>
+            <div class="text-center mt-4">
+                <small style="font-size: 0.75rem; color: rgba(255,255,255,0.7); font-weight: 500; letter-spacing: 0.5px;">
+                    &copy; 2026 HENTIX &bull; MADE WITH PASSION
+                </small>
             </div>
 
         </div>
