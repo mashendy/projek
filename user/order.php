@@ -27,18 +27,21 @@ if(mysqli_num_rows($eventQuery) == 0){
 }
 $event = mysqli_fetch_assoc($eventQuery);
 
-// =========================================================================
-// PENGATURAN LIMIT PEMBELIAN MANUAL (Tanpa Tabel Baru)
-// Silakan ubah nama tiket dan jumlah maksimalnya di sini
-// =========================================================================
-$limit_per_tiket = [
-    'VIP'        => 2,  // Maksimal 2 tiket
-    'VVIP'       => 1,  // Maksimal 1 tiket
-    'Presale'    => 4,  // Maksimal 4 tiket
-    'Regular'    => 5   // Maksimal 5 tiket
-];
-$default_limit = 5; // Jika nama tiket tidak ada di daftar atas, limitnya ini
-// =========================================================================
+/**
+ * Fungsi untuk memisahkan nama tiket dan limit dari database
+ * Contoh: "VIP [L:2]" -> Nama: "VIP", Limit: 2
+ */
+function parseTicketInfo($rawName) {
+    $limit = 5; // Default limit
+    $name = $rawName;
+    
+    if (preg_match('/\[L:(\d+)\]/', $rawName, $matches)) {
+        $limit = intval($matches[1]);
+        $name = trim(preg_replace('/\[L:\d+\]/', '', $rawName));
+    }
+    
+    return ['nama' => $name, 'limit' => $limit];
+}
 
 $message = '';
 $messageType = '';
@@ -65,12 +68,13 @@ if(isset($_POST['beli'])){
         } else {
             $ticket = mysqli_fetch_assoc($ticketQuery);
             
-            // Logika Cek Limit berdasarkan nama tiket
-            $nama_tk = $ticket['nama_tiket'];
-            $max_boleh_beli = isset($limit_per_tiket[$nama_tk]) ? $limit_per_tiket[$nama_tk] : $default_limit;
+            // Ambil limit dinamis dari nama tiket di database
+            $info = parseTicketInfo($ticket['nama_tiket']);
+            $max_boleh_beli = $info['limit'];
+            $nama_tampilan = $info['nama'];
 
             if($qty > $max_boleh_beli){
-                $message = "Maaf, pembelian tiket $nama_tk dibatasi maksimal $max_boleh_beli per transaksi agar semua kebagian.";
+                $message = "Maaf, pembelian tiket $nama_tampilan dibatasi maksimal $max_boleh_beli per transaksi.";
                 $messageType = 'danger';
             } elseif($qty > $ticket['kuota']){
                 $message = 'Stok tiket tidak cukup.';
@@ -78,17 +82,14 @@ if(isset($_POST['beli'])){
             } else {
                 $subtotal = $qty * $ticket['harga'];
                 $discount = 0;
-                $voucherMessage = '';
                 $voucherId = 'NULL';
+                $voucherMessage = '';
 
                 // Proses Voucher
                 if($voucherCode !== ''){
                     $vStr = mysqli_real_escape_string($conn, $voucherCode);
                     $vQ = mysqli_query($conn, "SELECT * FROM voucher WHERE kode_voucher = '$vStr' AND status = 'aktif' AND kuota > 0");
-                    if(mysqli_num_rows($vQ) == 0){
-                        $message = 'Voucher tidak valid.';
-                        $messageType = 'danger';
-                    } else {
+                    if(mysqli_num_rows($vQ) > 0){
                         $vData = mysqli_fetch_assoc($vQ);
                         $discount = floor($subtotal * $vData['potongan'] / 100);
                         $subtotal = max(0, $subtotal - $discount);
@@ -98,23 +99,18 @@ if(isset($_POST['beli'])){
                     }
                 }
 
-                if($messageType !== 'danger'){
-                    $id_user = intval($_SESSION['id_user']);
-                    $qOrder = "INSERT INTO orders (id_user, tanggal_order, total, status, id_voucher) 
-                               VALUES ('$id_user', NOW(), '$subtotal', 'pending', " . ($voucherId !== 'NULL' ? "'$voucherId'" : 'NULL') . ")";
-                    
-                    if(mysqli_query($conn, $qOrder)){
-                        $id_order = mysqli_insert_id($conn);
-                        mysqli_query($conn, "INSERT INTO order_detail (id_order, id_tiket, qty, subtotal) VALUES ('$id_order', '$id_tiket', '$qty', '$subtotal')");
-                        mysqli_query($conn, "UPDATE tiket SET kuota = kuota - $qty WHERE id_tiket = '$id_tiket'");
+                $id_user = intval($_SESSION['id_user']);
+                $qOrder = "INSERT INTO orders (id_user, tanggal_order, total, status, id_voucher) 
+                           VALUES ('$id_user', NOW(), '$subtotal', 'pending', " . ($voucherId !== 'NULL' ? "'$voucherId'" : 'NULL') . ")";
+                
+                if(mysqli_query($conn, $qOrder)){
+                    $id_order = mysqli_insert_id($conn);
+                    mysqli_query($conn, "INSERT INTO order_detail (id_order, id_tiket, qty, subtotal) VALUES ('$id_order', '$id_tiket', '$qty', '$subtotal')");
+                    mysqli_query($conn, "UPDATE tiket SET kuota = kuota - $qty WHERE id_tiket = '$id_tiket'");
 
-                        $message = 'Berhasil memesan tiket! ' . $voucherMessage;
-                        $messageType = 'success';
-                        $orderSummary = true;
-                    } else {
-                        $message = 'Terjadi kesalahan sistem.';
-                        $messageType = 'danger';
-                    }
+                    $message = 'Berhasil memesan tiket! ' . $voucherMessage;
+                    $messageType = 'success';
+                    $orderSummary = true;
                 }
             }
         }
@@ -125,9 +121,9 @@ if(isset($_POST['beli'])){
 $tickets = mysqli_query($conn, "SELECT * FROM tiket WHERE id_event = '$id_event' AND kuota > 0");
 $availableTickets = [];
 while ($row = mysqli_fetch_assoc($tickets)) {
-    // Sisipkan info limit ke tiap data tiket agar bisa dibaca JavaScript
-    $nama = $row['nama_tiket'];
-    $row['limit_manual'] = isset($limit_per_tiket[$nama]) ? $limit_per_tiket[$nama] : $default_limit;
+    $info = parseTicketInfo($row['nama_tiket']);
+    $row['nama_display'] = $info['nama'];
+    $row['limit_manual'] = $info['limit'];
     $availableTickets[] = $row;
 }
 ?>
@@ -145,7 +141,6 @@ while ($row = mysqli_fetch_assoc($tickets)) {
         body { background: #f4f7f6; font-family: 'Inter', sans-serif; font-size: 0.9rem; }
         @media (min-width: 992px) { .container-custom { max-width: 900px; margin: auto; } }
         .card { border: none; border-radius: 10px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
-        .form-label { font-weight: 600; font-size: 0.85rem; color: #555; }
         .ticket-item { padding: 10px 15px; background: #fff; border: 1px solid #eee; border-radius: 8px; margin-bottom: 10px; }
         .total-box { background: #f0f7ff; border: 1px dashed #0d6efd; border-radius: 8px; padding: 12px; }
         .limit-tag { font-size: 0.7rem; color: #dc3545; font-weight: bold; background: #ffeef0; padding: 2px 5px; border-radius: 4px; }
@@ -183,7 +178,7 @@ while ($row = mysqli_fetch_assoc($tickets)) {
                     <?php foreach($availableTickets as $ticket): ?>
                         <div class="ticket-item d-flex justify-content-between align-items-center">
                             <div>
-                                <div class="fw-bold small"><?= htmlspecialchars($ticket['nama_tiket']); ?></div>
+                                <div class="fw-bold small"><?= htmlspecialchars($ticket['nama_display']); ?></div>
                                 <div class="text-primary small fw-bold">Rp <?= number_format($ticket['harga']); ?></div>
                                 <div class="limit-tag">Maks: <?= $ticket['limit_manual']; ?> tiket</div>
                             </div>
@@ -199,7 +194,7 @@ while ($row = mysqli_fetch_assoc($tickets)) {
                 <div class="card-body">
                     <form id="orderForm" method="POST">
                         <div class="mb-3">
-                            <label class="form-label">Jenis Tiket</label>
+                            <label class="form-label fw-bold">Jenis Tiket</label>
                             <select id="ticketSelector" name="id_tiket" class="form-select" required>
                                 <option value="" disabled selected>Pilih tiket...</option>
                                 <?php foreach($availableTickets as $ticket): ?>
@@ -207,7 +202,7 @@ while ($row = mysqli_fetch_assoc($tickets)) {
                                             data-kuota="<?= $ticket['kuota']; ?>" 
                                             data-price="<?= $ticket['harga']; ?>"
                                             data-max="<?= $ticket['limit_manual']; ?>">
-                                        <?= htmlspecialchars($ticket['nama_tiket']); ?> (Maks: <?= $ticket['limit_manual']; ?>)
+                                        <?= htmlspecialchars($ticket['nama_display']); ?> (Limit: <?= $ticket['limit_manual']; ?>)
                                     </option>
                                 <?php endforeach; ?>
                             </select>
@@ -215,12 +210,12 @@ while ($row = mysqli_fetch_assoc($tickets)) {
 
                         <div class="row g-2">
                             <div class="col-4">
-                                <label class="form-label">Jumlah</label>
+                                <label class="form-label fw-bold">Jumlah</label>
                                 <input id="ticketQty" type="number" name="qty" class="form-control text-center" value="1" min="1">
                             </div>
                             <div class="col-8">
-                                <label class="form-label">Voucher</label>
-                                <input type="text" name="voucher" class="form-control text-uppercase" placeholder="Masukkan Kode">
+                                <label class="form-label fw-bold">Voucher</label>
+                                <input type="text" name="voucher" class="form-control text-uppercase" placeholder="Kode Voucher">
                             </div>
                         </div>
 
@@ -241,7 +236,6 @@ while ($row = mysqli_fetch_assoc($tickets)) {
 
 <script>
     document.addEventListener('DOMContentLoaded', function() {
-        const orderForm = document.getElementById('orderForm');
         const selector = document.getElementById('ticketSelector');
         const qtyInput = document.getElementById('ticketQty');
         const totalDisplay = document.getElementById('totalPrice');
@@ -252,51 +246,28 @@ while ($row = mysqli_fetch_assoc($tickets)) {
             if (!opt || opt.value === "") return;
 
             const price = parseInt(opt.dataset.price);
-            const kuota = parseInt(opt.dataset.kuota);
             const maxLimit = parseInt(opt.dataset.max); 
+            const kuotaFisik = parseInt(opt.dataset.kuota);
             
             let val = parseInt(qtyInput.value);
 
-            // Validasi Input agar tidak melebihi limit manual
             if (val > maxLimit) {
                 alert('Maksimal pembelian untuk tiket ini adalah ' + maxLimit + ' tiket.');
                 val = maxLimit;
                 qtyInput.value = maxLimit;
             }
-            
-            // Tetap validasi kuota fisik
-            if (val > kuota) {
-                val = kuota;
-                qtyInput.value = kuota;
+
+            if (val > kuotaFisik) {
+                val = kuotaFisik;
+                qtyInput.value = kuotaFisik;
             }
 
             if (isNaN(val) || val < 1) {
                 totalDisplay.innerText = 'Rp 0';
-                return;
+            } else {
+                totalDisplay.innerText = 'Rp ' + new Intl.NumberFormat('id-ID').format(price * val);
             }
-
-            totalDisplay.innerText = 'Rp ' + new Intl.NumberFormat('id-ID').format(price * val);
         }
-
-        orderForm.addEventListener('submit', function(e) {
-            const opt = selector.selectedOptions[0];
-            const qty = parseInt(qtyInput.value);
-            
-            alertBox.innerHTML = '';
-
-            if (selector.value === "" || selector.value === null) {
-                e.preventDefault();
-                alert('Silakan pilih jenis tiket terlebih dahulu!');
-                return false;
-            }
-
-            const maxLimit = parseInt(opt.dataset.max);
-            if (qty > maxLimit) {
-                e.preventDefault();
-                alertBox.innerHTML = '<div class="alert alert-danger py-2 small">Gagal! Maksimal pembelian tiket ini adalah ' + maxLimit + '.</div>';
-                return false;
-            }
-        });
 
         selector.addEventListener('change', calculate);
         qtyInput.addEventListener('input', calculate);

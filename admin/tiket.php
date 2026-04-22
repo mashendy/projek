@@ -8,6 +8,17 @@ if (!isset($_SESSION['login']) || $_SESSION['role'] != 'admin') {
     exit;
 }
 
+// Fungsi bantu untuk memisahkan Nama Tiket dan Limit dari string database
+function parseTicketName($rawName) {
+    if (strpos($rawName, '[L:') !== false) {
+        $parts = explode('[L:', $rawName);
+        $name = trim($parts[0]);
+        $limit = (int)str_replace(']', '', $parts[1]);
+        return ['nama' => $name, 'limit' => $limit];
+    }
+    return ['nama' => $rawName, 'limit' => 5]; // Default limit jika tidak ada tag
+}
+
 function getVenueCapacity($conn, $id_event) {
     $id_event = (int)$id_event;
     $result = mysqli_query($conn, "
@@ -37,12 +48,15 @@ function getEventTicketUsage($conn, $id_event, $exclude_tiket_id = null) {
 
 // ================= TAMBAH =================
 if (isset($_POST['tambah'])) {
-    $nama = mysqli_real_escape_string($conn, $_POST['nama_tiket']);
+    $nama_murni = mysqli_real_escape_string($conn, $_POST['nama_tiket']);
+    $limit_input = (int)$_POST['max_beli'];
+    $nama = $nama_murni . " [L:" . $limit_input . "]"; // Menggabungkan nama + limit
+    
     $harga = (int)$_POST['harga'];
     $kuota = (int)$_POST['kuota'];
     $id_event = (int)$_POST['id_event'];
 
-    if (empty($nama) || empty($harga) || empty($kuota) || empty($id_event)) {
+    if (empty($nama_murni) || empty($harga) || empty($kuota) || empty($id_event)) {
         echo "<script>alert('Semua field wajib diisi!');</script>";
     } elseif ($harga <= 0 || $kuota <= 0) {
         echo "<script>alert('Harga dan kuota harus lebih dari 0!');</script>";
@@ -75,12 +89,15 @@ if (isset($_POST['tambah'])) {
 // ================= EDIT =================
 if (isset($_POST['edit'])) {
     $id = (int)$_POST['id_tiket'];
-    $nama = mysqli_real_escape_string($conn, $_POST['nama_tiket']);
+    $nama_murni = mysqli_real_escape_string($conn, $_POST['nama_tiket']);
+    $limit_input = (int)$_POST['max_beli'];
+    $nama = $nama_murni . " [L:" . $limit_input . "]";
+
     $harga = (int)$_POST['harga'];
     $kuota = (int)$_POST['kuota'];
     $id_event = (int)$_POST['id_event'];
 
-    if (empty($nama) || empty($harga) || empty($kuota) || empty($id_event)) {
+    if (empty($nama_murni) || empty($harga) || empty($kuota) || empty($id_event)) {
         echo "<script>alert('Semua field wajib diisi!');</script>";
     } elseif ($harga <= 0 || $kuota <= 0) {
         echo "<script>alert('Harga dan kuota harus lebih dari 0!');</script>";
@@ -141,8 +158,8 @@ $event = mysqli_query($conn, "SELECT * FROM event ORDER BY tanggal ASC");
     <title>Kelola Tiket</title>
     <link rel="icon" type="image/x-icon" href="../bootstrap/image/image.png">
     <link href="../bootstrap/css/bootstrap.min.css" rel="stylesheet">
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" rel="stylesheet">
-    <link href="sidebar.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+    <link rel="stylesheet" href="sidebar.css">
     <style>
         body { background-color: #f8f9fa; }
         .card { border-radius: 16px; box-shadow: 0 4px 20px rgba(0,0,0,0.08); }
@@ -150,13 +167,13 @@ $event = mysqli_query($conn, "SELECT * FROM event ORDER BY tanggal ASC");
         .modal-content { border-radius: 16px; }
         .harga { font-weight: 600; color: #28a745; }
         .btn-action { min-width: 85px; }
+        .badge-limit { background-color: #fff3cd; color: #856404; border: 1px solid #ffeeba; }
     </style>
 </head>
 <body>
-
 <?php include 'sidebar.php'; ?>
 
-<div class="container">
+<div class="container py-4">
     <div class="d-flex justify-content-between align-items-center mb-4">
         <div>
             <h2 class="fw-bold mb-1">Kelola Tiket</h2>
@@ -172,7 +189,7 @@ $event = mysqli_query($conn, "SELECT * FROM event ORDER BY tanggal ASC");
             <div class="mb-4">
                 <div class="input-group">
                     <span class="input-group-text bg-white"><i class="fas fa-search"></i></span>
-                    <input type="search" id="searchTiket" class="form-control" placeholder="Cari nama tiket atau event..." aria-label="Search Ticket">
+                    <input type="search" id="searchTiket" class="form-control" placeholder="Cari nama tiket atau event...">
                 </div>
             </div>
             <div class="table-responsive">
@@ -191,30 +208,29 @@ $event = mysqli_query($conn, "SELECT * FROM event ORDER BY tanggal ASC");
                         <?php 
                         $no = 1; 
                         while ($d = mysqli_fetch_assoc($data)) { 
+                            $info = parseTicketName($d['nama_tiket']);
                         ?>
                         <tr>
                             <td><?= $no++; ?></td>
-                            <td><strong><?= htmlspecialchars($d['nama_tiket']); ?></strong></td>
+                            <td>
+                                <strong><?= htmlspecialchars($info['nama']); ?></strong><br>
+                                <span class="badge badge-limit"><i class="fas fa-user-lock me-1"></i> Max Beli: <?= $info['limit']; ?></span>
+                            </td>
                             <td><?= htmlspecialchars($d['nama_event']); ?></td>
                             <td class="harga">Rp <?= number_format($d['harga']); ?></td>
                             <td>
-                                <span class="badge bg-info"><?= number_format($d['kuota']); ?> tiket</span>
+                                <span class="badge bg-info text-dark"><?= number_format($d['kuota']); ?> tiket</span>
                             </td>
                             <td class="text-center">
-                                <button class="btn btn-warning btn-sm btn-action" 
-                                        data-bs-toggle="modal" 
-                                        data-bs-target="#edit<?= $d['id_tiket']; ?>">
+                                <button class="btn btn-warning btn-sm btn-action" data-bs-toggle="modal" data-bs-target="#edit<?= $d['id_tiket']; ?>">
                                     <i class="fas fa-edit"></i> Edit
                                 </button>
-                                <a href="?hapus=<?= $d['id_tiket']; ?>" 
-                                   class="btn btn-danger btn-sm btn-action"
-                                   onclick="return confirm('Yakin ingin menghapus tiket ini?')">
+                                <a href="?hapus=<?= $d['id_tiket']; ?>" class="btn btn-danger btn-sm btn-action" onclick="return confirm('Yakin ingin menghapus tiket ini?')">
                                     <i class="fas fa-trash"></i> Hapus
                                 </a>
                             </td>
                         </tr>
 
-                        <!-- Modal Edit -->
                         <div class="modal fade" id="edit<?= $d['id_tiket']; ?>" tabindex="-1">
                             <div class="modal-dialog modal-dialog-centered">
                                 <div class="modal-content">
@@ -225,34 +241,30 @@ $event = mysqli_query($conn, "SELECT * FROM event ORDER BY tanggal ASC");
                                         </div>
                                         <div class="modal-body">
                                             <input type="hidden" name="id_tiket" value="<?= $d['id_tiket']; ?>">
-
                                             <div class="mb-3">
-                                                <label class="form-label">Nama Tiket <span class="text-danger">*</span></label>
-                                                <input type="text" name="nama_tiket" class="form-control" 
-                                                       value="<?= htmlspecialchars($d['nama_tiket']); ?>" required>
+                                                <label class="form-label">Nama Tiket</label>
+                                                <input type="text" name="nama_tiket" class="form-control" value="<?= htmlspecialchars($info['nama']); ?>" required>
                                             </div>
-
                                             <div class="mb-3">
-                                                <label class="form-label">Harga (Rp) <span class="text-danger">*</span></label>
-                                                <input type="number" name="harga" class="form-control" 
-                                                       value="<?= $d['harga']; ?>" min="1" required>
+                                                <label class="form-label">Max Beli Per User (Limit)</label>
+                                                <input type="number" name="max_beli" class="form-control" value="<?= $info['limit']; ?>" min="1" required>
                                             </div>
-
                                             <div class="mb-3">
-                                                <label class="form-label">Kuota <span class="text-danger">*</span></label>
-                                                <input type="number" name="kuota" class="form-control" 
-                                                       value="<?= $d['kuota']; ?>" min="1" required>
+                                                <label class="form-label">Harga (Rp)</label>
+                                                <input type="number" name="harga" class="form-control" value="<?= $d['harga']; ?>" min="1" required>
                                             </div>
-
                                             <div class="mb-3">
-                                                <label class="form-label">Event <span class="text-danger">*</span></label>
+                                                <label class="form-label">Kuota</label>
+                                                <input type="number" name="kuota" class="form-control" value="<?= $d['kuota']; ?>" min="1" required>
+                                            </div>
+                                            <div class="mb-3">
+                                                <label class="form-label">Event</label>
                                                 <select name="id_event" class="form-select" required>
                                                     <?php 
-                                                    $event2 = mysqli_query($conn, "SELECT * FROM event ORDER BY tanggal");
-                                                    while ($e = mysqli_fetch_assoc($event2)) { 
+                                                    mysqli_data_seek($event, 0);
+                                                    while ($e = mysqli_fetch_assoc($event)) { 
                                                     ?>
-                                                    <option value="<?= $e['id_event']; ?>" 
-                                                        <?= ($e['id_event'] == $d['id_event']) ? 'selected' : '' ?>>
+                                                    <option value="<?= $e['id_event']; ?>" <?= ($e['id_event'] == $d['id_event']) ? 'selected' : '' ?>>
                                                         <?= htmlspecialchars($e['nama_event']); ?>
                                                     </option>
                                                     <?php } ?>
@@ -275,7 +287,6 @@ $event = mysqli_query($conn, "SELECT * FROM event ORDER BY tanggal ASC");
     </div>
 </div>
 
-<!-- Modal Tambah Tiket -->
 <div class="modal fade" id="tambahModal" tabindex="-1">
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content">
@@ -286,31 +297,30 @@ $event = mysqli_query($conn, "SELECT * FROM event ORDER BY tanggal ASC");
                 </div>
                 <div class="modal-body">
                     <div class="mb-3">
-                        <label class="form-label">Nama Tiket <span class="text-danger">*</span></label>
-                        <input type="text" name="nama_tiket" class="form-control" placeholder="VIP, Regular, Early Bird, dll" required>
+                        <label class="form-label">Nama Tiket</label>
+                        <input type="text" name="nama_tiket" class="form-control" placeholder="VIP, Regular, dll" required>
                     </div>
-
                     <div class="mb-3">
-                        <label class="form-label">Harga (Rp) <span class="text-danger">*</span></label>
+                        <label class="form-label">Max Beli Per User (Limit)</label>
+                        <input type="number" name="max_beli" class="form-control" value="5" min="1" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Harga (Rp)</label>
                         <input type="number" name="harga" class="form-control" min="1" required>
                     </div>
-
                     <div class="mb-3">
-                        <label class="form-label">Kuota <span class="text-danger">*</span></label>
+                        <label class="form-label">Kuota</label>
                         <input type="number" name="kuota" class="form-control" min="1" required>
                     </div>
-
                     <div class="mb-3">
-                        <label class="form-label">Event <span class="text-danger">*</span></label>
+                        <label class="form-label">Event</label>
                         <select name="id_event" class="form-select" required>
                             <option value="">Pilih Event</option>
                             <?php 
-                            mysqli_data_seek($event, 0); // reset pointer
+                            mysqli_data_seek($event, 0);
                             while ($e = mysqli_fetch_assoc($event)) { 
                             ?>
-                                <option value="<?= $e['id_event']; ?>">
-                                    <?= htmlspecialchars($e['nama_event']); ?>
-                                </option>
+                                <option value="<?= $e['id_event']; ?>"><?= htmlspecialchars($e['nama_event']); ?></option>
                             <?php } ?>
                         </select>
                     </div>
@@ -323,42 +333,33 @@ $event = mysqli_query($conn, "SELECT * FROM event ORDER BY tanggal ASC");
         </div>
     </div>
 </div>
-        </div>
-    </div>
-</div>
 
 <script src="../bootstrap/js/bootstrap.bundle.min.js"></script>
-
 <script>
-function setupTableSearch(inputId, tableSelector) {
-    const input = document.getElementById(inputId);
-    if (!input) return;
-    input.addEventListener('input', () => {
-        const filter = input.value.toLowerCase();
-        document.querySelectorAll(tableSelector).forEach(row => {
-            const text = row.textContent.toLowerCase();
+    // Search Function
+    document.getElementById('searchTiket').addEventListener('input', function() {
+        let filter = this.value.toLowerCase();
+        let rows = document.querySelectorAll('.table tbody tr');
+        rows.forEach(row => {
+            let text = row.textContent.toLowerCase();
             row.style.display = text.includes(filter) ? '' : 'none';
         });
     });
-}
 
-setupTableSearch('searchTiket', '.table tbody tr');
-
-// Bootstrap Validation
-(() => {
-    'use strict';
-    const forms = document.querySelectorAll('.needs-validation');
-    Array.from(forms).forEach(form => {
-        form.addEventListener('submit', event => {
-            if (!form.checkValidity()) {
-                event.preventDefault();
-                event.stopPropagation();
-            }
-            form.classList.add('was-validated');
-        }, false);
-    });
-})();
+    // Form Validation
+    (() => {
+        'use strict'
+        const forms = document.querySelectorAll('.needs-validation')
+        Array.from(forms).forEach(form => {
+            form.addEventListener('submit', event => {
+                if (!form.checkValidity()) {
+                    event.preventDefault()
+                    event.stopPropagation()
+                }
+                form.classList.add('was-validated')
+            }, false)
+        })
+    })()
 </script>
-
 </body>
 </html>
