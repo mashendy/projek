@@ -8,7 +8,7 @@ if (!isset($_SESSION['login']) || $_SESSION['role'] != 'admin') {
     exit;
 }
 
-// Fungsi bantu untuk memisahkan Nama Tiket dan Limit dari string database
+// Fungsi bantu untuk memisahkan Nama Tiket dan Limit
 function parseTicketName($rawName) {
     if (strpos($rawName, '[L:') !== false) {
         $parts = explode('[L:', $rawName);
@@ -16,17 +16,12 @@ function parseTicketName($rawName) {
         $limit = (int)str_replace(']', '', $parts[1]);
         return ['nama' => $name, 'limit' => $limit];
     }
-    return ['nama' => $rawName, 'limit' => 5]; // Default limit jika tidak ada tag
+    return ['nama' => $rawName, 'limit' => 5];
 }
 
 function getVenueCapacity($conn, $id_event) {
     $id_event = (int)$id_event;
-    $result = mysqli_query($conn, "
-        SELECT v.kapasitas
-        FROM event e
-        JOIN venue v ON e.id_venue = v.id_venue
-        WHERE e.id_event = '$id_event'
-    ");
+    $result = mysqli_query($conn, "SELECT v.kapasitas FROM event e JOIN venue v ON e.id_venue = v.id_venue WHERE e.id_event = '$id_event'");
     if ($result && $row = mysqli_fetch_assoc($result)) {
         return (int)$row['kapasitas'];
     }
@@ -35,10 +30,7 @@ function getVenueCapacity($conn, $id_event) {
 
 function getEventTicketUsage($conn, $id_event, $exclude_tiket_id = null) {
     $id_event = (int)$id_event;
-    $exclude_sql = '';
-    if ($exclude_tiket_id !== null) {
-        $exclude_sql = " AND id_tiket != '" . (int)$exclude_tiket_id . "'";
-    }
+    $exclude_sql = $exclude_tiket_id !== null ? " AND id_tiket != '" . (int)$exclude_tiket_id . "'" : '';
     $result = mysqli_query($conn, "SELECT COALESCE(SUM(kuota), 0) AS total FROM tiket WHERE id_event = '$id_event' $exclude_sql");
     if ($result && $row = mysqli_fetch_assoc($result)) {
         return (int)$row['total'];
@@ -50,39 +42,19 @@ function getEventTicketUsage($conn, $id_event, $exclude_tiket_id = null) {
 if (isset($_POST['tambah'])) {
     $nama_murni = mysqli_real_escape_string($conn, $_POST['nama_tiket']);
     $limit_input = (int)$_POST['max_beli'];
-    $nama = $nama_murni . " [L:" . $limit_input . "]"; // Menggabungkan nama + limit
-    
+    $nama = $nama_murni . " [L:" . $limit_input . "]";
     $harga = (int)$_POST['harga'];
     $kuota = (int)$_POST['kuota'];
     $id_event = (int)$_POST['id_event'];
 
-    if (empty($nama_murni) || empty($harga) || empty($kuota) || empty($id_event)) {
-        echo "<script>alert('Semua field wajib diisi!');</script>";
-    } elseif ($harga <= 0 || $kuota <= 0) {
-        echo "<script>alert('Harga dan kuota harus lebih dari 0!');</script>";
-    } else {
-        $cek_event = mysqli_query($conn, "SELECT * FROM event WHERE id_event = '$id_event'");
-        if (mysqli_num_rows($cek_event) == 0) {
-            echo "<script>alert('Event tidak valid atau tidak ditemukan.');</script>";
-        } else {
-            $cek_nama = mysqli_query($conn, "SELECT * FROM tiket WHERE id_event = '$id_event' AND nama_tiket = '$nama'");
-            if (mysqli_num_rows($cek_nama) > 0) {
-                echo "<script>alert('Nama tiket sudah digunakan untuk event ini.');</script>";
-            } else {
-                $kapasitas_venue = getVenueCapacity($conn, $id_event);
-                $used_kuota = getEventTicketUsage($conn, $id_event);
+    $kapasitas_venue = getVenueCapacity($conn, $id_event);
+    $used_kuota = getEventTicketUsage($conn, $id_event);
 
-                if ($kapasitas_venue <= 0) {
-                    echo "<script>alert('Event tidak valid atau venue belum tersedia.');</script>";
-                } elseif ($used_kuota + $kuota > $kapasitas_venue) {
-                    echo "<script>alert('Total kuota tiket untuk event ini melebihi kapasitas venue ($kapasitas_venue orang).');</script>";
-                } else {
-                    mysqli_query($conn, "INSERT INTO tiket (nama_tiket, harga, kuota, id_event) 
-                                        VALUES ('$nama', '$harga', '$kuota', '$id_event')");
-                    echo "<script>alert('Tiket berhasil ditambahkan!'); window.location='tiket.php';</script>";
-                }
-            }
-        }
+    if ($used_kuota + $kuota > $kapasitas_venue) {
+        echo "<script>alert('Total kuota tiket melebihi kapasitas venue ($kapasitas_venue orang).');</script>";
+    } else {
+        mysqli_query($conn, "INSERT INTO tiket (nama_tiket, harga, kuota, id_event) VALUES ('$nama', '$harga', '$kuota', '$id_event')");
+        echo "<script>alert('Tiket berhasil ditambahkan!'); window.location='tiket.php';</script>";
     }
 }
 
@@ -92,42 +64,18 @@ if (isset($_POST['edit'])) {
     $nama_murni = mysqli_real_escape_string($conn, $_POST['nama_tiket']);
     $limit_input = (int)$_POST['max_beli'];
     $nama = $nama_murni . " [L:" . $limit_input . "]";
-
     $harga = (int)$_POST['harga'];
     $kuota = (int)$_POST['kuota'];
     $id_event = (int)$_POST['id_event'];
 
-    if (empty($nama_murni) || empty($harga) || empty($kuota) || empty($id_event)) {
-        echo "<script>alert('Semua field wajib diisi!');</script>";
-    } elseif ($harga <= 0 || $kuota <= 0) {
-        echo "<script>alert('Harga dan kuota harus lebih dari 0!');</script>";
-    } else {
-        $cek_event = mysqli_query($conn, "SELECT * FROM event WHERE id_event = '$id_event'");
-        if (mysqli_num_rows($cek_event) == 0) {
-            echo "<script>alert('Event tidak valid atau tidak ditemukan.');</script>";
-        } else {
-            $cek_nama = mysqli_query($conn, "SELECT * FROM tiket WHERE id_event = '$id_event' AND nama_tiket = '$nama' AND id_tiket != '$id'");
-            if (mysqli_num_rows($cek_nama) > 0) {
-                echo "<script>alert('Nama tiket sudah digunakan untuk event ini.');</script>";
-            } else {
-                $kapasitas_venue = getVenueCapacity($conn, $id_event);
-                $used_kuota = getEventTicketUsage($conn, $id_event, $id);
+    $kapasitas_venue = getVenueCapacity($conn, $id_event);
+    $used_kuota = getEventTicketUsage($conn, $id_event, $id);
 
-                if ($kapasitas_venue <= 0) {
-                    echo "<script>alert('Event tidak valid atau venue belum tersedia.');</script>";
-                } elseif ($used_kuota + $kuota > $kapasitas_venue) {
-                    echo "<script>alert('Total kuota tiket untuk event ini melebihi kapasitas venue ($kapasitas_venue orang).');</script>";
-                } else {
-                    mysqli_query($conn, "UPDATE tiket SET 
-                        nama_tiket='$nama',
-                        harga='$harga',
-                        kuota='$kuota',
-                        id_event='$id_event'
-                        WHERE id_tiket='$id'");
-                    echo "<script>alert('Tiket berhasil diupdate!'); window.location='tiket.php';</script>";
-                }
-            }
-        }
+    if ($used_kuota + $kuota > $kapasitas_venue) {
+        echo "<script>alert('Total kuota tiket melebihi kapasitas venue ($kapasitas_venue orang).');</script>";
+    } else {
+        mysqli_query($conn, "UPDATE tiket SET nama_tiket='$nama', harga='$harga', kuota='$kuota', id_event='$id_event' WHERE id_tiket='$id'");
+        echo "<script>alert('Tiket berhasil diupdate!'); window.location='tiket.php';</script>";
     }
 }
 
@@ -138,15 +86,7 @@ if (isset($_GET['hapus'])) {
     echo "<script>alert('Tiket berhasil dihapus!'); window.location='tiket.php';</script>";
 }
 
-// Ambil data tiket + event
-$data = mysqli_query($conn, "
-    SELECT tiket.*, event.nama_event 
-    FROM tiket 
-    JOIN event ON tiket.id_event = event.id_event 
-    ORDER BY event.tanggal ASC, tiket.nama_tiket ASC
-");
-
-// Ambil daftar event untuk dropdown
+$data = mysqli_query($conn, "SELECT tiket.*, event.nama_event FROM tiket JOIN event ON tiket.id_event = event.id_event ORDER BY event.tanggal ASC, tiket.nama_tiket ASC");
 $event = mysqli_query($conn, "SELECT * FROM event ORDER BY tanggal ASC");
 ?>
 
@@ -189,11 +129,11 @@ $event = mysqli_query($conn, "SELECT * FROM event ORDER BY tanggal ASC");
             <div class="mb-4">
                 <div class="input-group">
                     <span class="input-group-text bg-white"><i class="fas fa-search"></i></span>
-                    <input type="search" id="searchTiket" class="form-control" placeholder="Cari nama tiket atau event...">
+                    <input type="search" id="searchTiket" class="form-control" placeholder="Cari nama tiket, event, harga, atau jumlah kuota...">
                 </div>
             </div>
             <div class="table-responsive">
-                <table class="table table-hover align-middle">
+                <table class="table table-hover align-middle" id="tabelTiket">
                     <thead>
                         <tr>
                             <th width="5%">No</th>
@@ -219,7 +159,11 @@ $event = mysqli_query($conn, "SELECT * FROM event ORDER BY tanggal ASC");
                             <td><?= htmlspecialchars($d['nama_event']); ?></td>
                             <td class="harga">Rp <?= number_format($d['harga']); ?></td>
                             <td>
-                                <span class="badge bg-info text-dark"><?= number_format($d['kuota']); ?> tiket</span>
+                                <?php if($d['kuota'] <= 0): ?>
+                                    <span class="badge bg-danger">Habis (0)</span>
+                                <?php else: ?>
+                                    <span class="badge bg-info text-dark"><?= number_format($d['kuota']); ?> tiket</span>
+                                <?php endif; ?>
                             </td>
                             <td class="text-center">
                                 <button class="btn btn-warning btn-sm btn-action" data-bs-toggle="modal" data-bs-target="#edit<?= $d['id_tiket']; ?>">
@@ -234,9 +178,9 @@ $event = mysqli_query($conn, "SELECT * FROM event ORDER BY tanggal ASC");
                         <div class="modal fade" id="edit<?= $d['id_tiket']; ?>" tabindex="-1">
                             <div class="modal-dialog modal-dialog-centered">
                                 <div class="modal-content">
-                                    <form method="POST" class="needs-validation" novalidate>
+                                    <form method="POST">
                                         <div class="modal-header">
-                                            <h5 class="modal-title">Edit Tiket</h5>
+                                            <h5 class="modal-title fw-bold">Edit Tiket</h5>
                                             <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                                         </div>
                                         <div class="modal-body">
@@ -246,7 +190,7 @@ $event = mysqli_query($conn, "SELECT * FROM event ORDER BY tanggal ASC");
                                                 <input type="text" name="nama_tiket" class="form-control" value="<?= htmlspecialchars($info['nama']); ?>" required>
                                             </div>
                                             <div class="mb-3">
-                                                <label class="form-label">Max Beli Per User (Limit)</label>
+                                                <label class="form-label">Max Beli Per User</label>
                                                 <input type="number" name="max_beli" class="form-control" value="<?= $info['limit']; ?>" min="1" required>
                                             </div>
                                             <div class="mb-3">
@@ -255,15 +199,14 @@ $event = mysqli_query($conn, "SELECT * FROM event ORDER BY tanggal ASC");
                                             </div>
                                             <div class="mb-3">
                                                 <label class="form-label">Kuota</label>
-                                                <input type="number" name="kuota" class="form-control" value="<?= $d['kuota']; ?>" min="1" required>
+                                                <input type="number" name="kuota" class="form-control" value="<?= $d['kuota']; ?>" min="0" required>
                                             </div>
                                             <div class="mb-3">
                                                 <label class="form-label">Event</label>
                                                 <select name="id_event" class="form-select" required>
                                                     <?php 
                                                     mysqli_data_seek($event, 0);
-                                                    while ($e = mysqli_fetch_assoc($event)) { 
-                                                    ?>
+                                                    while ($e = mysqli_fetch_assoc($event)) { ?>
                                                     <option value="<?= $e['id_event']; ?>" <?= ($e['id_event'] == $d['id_event']) ? 'selected' : '' ?>>
                                                         <?= htmlspecialchars($e['nama_event']); ?>
                                                     </option>
@@ -290,9 +233,9 @@ $event = mysqli_query($conn, "SELECT * FROM event ORDER BY tanggal ASC");
 <div class="modal fade" id="tambahModal" tabindex="-1">
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content">
-            <form method="POST" class="needs-validation" novalidate>
+            <form method="POST">
                 <div class="modal-header">
-                    <h5 class="modal-title">Tambah Tiket Baru</h5>
+                    <h5 class="modal-title fw-bold">Tambah Tiket Baru</h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
                 <div class="modal-body">
@@ -301,16 +244,16 @@ $event = mysqli_query($conn, "SELECT * FROM event ORDER BY tanggal ASC");
                         <input type="text" name="nama_tiket" class="form-control" placeholder="VIP, Regular, dll" required>
                     </div>
                     <div class="mb-3">
-                        <label class="form-label">Max Beli Per User (Limit)</label>
+                        <label class="form-label">Max Beli Per User</label>
                         <input type="number" name="max_beli" class="form-control" value="5" min="1" required>
                     </div>
                     <div class="mb-3">
                         <label class="form-label">Harga (Rp)</label>
-                        <input type="number" name="harga" class="form-control" min="1" required>
+                        <input type="number" name="harga" class="form-control" placeholder="100000" min="1" required>
                     </div>
                     <div class="mb-3">
                         <label class="form-label">Kuota</label>
-                        <input type="number" name="kuota" class="form-control" min="1" required>
+                        <input type="number" name="kuota" class="form-control" placeholder="50" min="1" required>
                     </div>
                     <div class="mb-3">
                         <label class="form-label">Event</label>
@@ -318,8 +261,7 @@ $event = mysqli_query($conn, "SELECT * FROM event ORDER BY tanggal ASC");
                             <option value="">Pilih Event</option>
                             <?php 
                             mysqli_data_seek($event, 0);
-                            while ($e = mysqli_fetch_assoc($event)) { 
-                            ?>
+                            while ($e = mysqli_fetch_assoc($event)) { ?>
                                 <option value="<?= $e['id_event']; ?>"><?= htmlspecialchars($e['nama_event']); ?></option>
                             <?php } ?>
                         </select>
@@ -336,30 +278,28 @@ $event = mysqli_query($conn, "SELECT * FROM event ORDER BY tanggal ASC");
 
 <script src="../bootstrap/js/bootstrap.bundle.min.js"></script>
 <script>
-    // Search Function
+    // SEARCH FUNCTION AKURAT UNTUK SEMUA KOLOM (TERMASUK ANGKA 0)
     document.getElementById('searchTiket').addEventListener('input', function() {
-        let filter = this.value.toLowerCase();
-        let rows = document.querySelectorAll('.table tbody tr');
+        let filter = this.value.trim().toLowerCase();
+        let rows = document.querySelectorAll('#tabelTiket tbody tr');
+
         rows.forEach(row => {
-            let text = row.textContent.toLowerCase();
-            row.style.display = text.includes(filter) ? '' : 'none';
+            // Ambil teks dari kolom Nama Tiket, Event, Harga, dan Kuota
+            let namaTiket = row.cells[1].innerText.toLowerCase();
+            let eventName = row.cells[2].innerText.toLowerCase();
+            let harga     = row.cells[3].innerText.toLowerCase();
+            let kuota     = row.cells[4].innerText.toLowerCase();
+
+            // Gabungkan teks kolom untuk dicari secara spesifik
+            let combinedText = `${namaTiket} ${eventName} ${harga} ${kuota}`;
+
+            if (combinedText.includes(filter)) {
+                row.style.display = '';
+            } else {
+                row.style.display = 'none';
+            }
         });
     });
-
-    // Form Validation
-    (() => {
-        'use strict'
-        const forms = document.querySelectorAll('.needs-validation')
-        Array.from(forms).forEach(form => {
-            form.addEventListener('submit', event => {
-                if (!form.checkValidity()) {
-                    event.preventDefault()
-                    event.stopPropagation()
-                }
-                form.classList.add('was-validated')
-            }, false)
-        })
-    })()
 </script>
 </body>
 </html>

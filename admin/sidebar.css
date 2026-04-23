@@ -1,26 +1,74 @@
 :root {
     --primary-gradient: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    --sidebar-width: 260px;
+    --transition-speed: 0.3s;
 }
 
 body {
-    background: #f8f9fa;
-    font-family: 'Segoe UI', sans-serif;
+    background: #f4f7f6;
+    font-family: 'Inter', 'Segoe UI', sans-serif;
 }
 
+/* Navbar Enhancements */
 .navbar {
     background: var(--primary-gradient) !important;
-    box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+    padding: 0.8rem 1rem;
 }
 
+/* Sidebar Styling */
 .sidebar {
     background: white;
-    box-shadow: 2px 0 15px rgba(0, 0, 0, 0.08);
-    min-height: 100vh;
-    border-right: 1px solid #eee;
+    min-height: calc(100vh - 56px); /* Tinggi penuh minus navbar */
+    transition: all var(--transition-speed);
+    border-right: 1px solid rgba(0,0,0,0.05);
 }
 
+.list-group-item {
+    border: none !important;
+    margin: 5px 15px;
+    border-radius: 10px !important;
+    padding: 12px 20px;
+    font-weight: 500;
+    color: #555;
+    transition: all var(--transition-speed);
+}
+
+.list-group-item i {
+    width: 25px;
+    font-size: 1.1rem;
+    color: #888;
+    transition: all var(--transition-speed);
+}
+
+/* Hover Effect */
+.list-group-item:hover {
+    background-color: #f8f9fa;
+    color: #667eea;
+    transform: translateX(5px);
+}
+
+.list-group-item:hover i {
+    color: #667eea;
+}
+
+/* Active State */
 .list-group-item.active {
     background: var(--primary-gradient) !important;
-    border: none;
-    color: white;
+    box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+    color: white !important;
+}
+
+.list-group-item.active i {
+    color: white !important;
+}
+
+/* Section Header */
+.sidebar-heading {
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 1.2px;
+    color: #adb5bd;
+    margin-top: 20px;
+    margin-bottom: 10px;
 }
